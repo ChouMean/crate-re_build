@@ -35,6 +35,111 @@ Download the [Uncopyrighted Pile](https://huggingface.co/datasets/monology/pile-
 
 Download the datasets you want to evaluate the CRATE language model. For example, you can get lambada, wikitext-2, openwebtext, and wikitext-103 from Huggingface datasets. After obtaining these datasets, just run `run_eval.sh` to evaluate the performance of the CRATE language model on downstream tasks.
 
+---
+
+# Benchmark Suite
+
+The benchmark covers two tracks:
+
+| Track | Description |
+|-------|-------------|
+| **Train from scratch** | Pre-train CRATE on the tested dataset (Pile) and two novel datasets (OpenWebText, Wikitext-103) |
+| **Fine-tune evaluation** | Fine-tune a pre-trained CRATE checkpoint on two novel datasets (Shakespeare, Penn Treebank) and measure perplexity |
+
+## Quick Start
+
+```bash
+# 1. Install dependencies
+pip install torch tiktoken datasets transformers tqdm requests
+
+# 2. Run the full benchmark (data prep → training → fine-tuning)
+bash run_benchmark.sh
+
+# 3. Run only data preparation
+bash run_benchmark.sh --prepare-only
+
+# 4. Run only pre-training
+bash run_benchmark.sh --train-only
+
+# 5. Run only fine-tuning (requires a pretrained checkpoint)
+PRETRAIN_CKPT_DIR=out bash run_benchmark.sh --finetune-only
+```
+
+## Datasets
+
+### Data Preparation
+
+Each dataset has a `prepare.py` script in its `data/<dataset>/` directory.  
+Run them individually or let `run_benchmark.sh` handle it.
+
+| Dataset | Purpose | Script |
+|---------|---------|--------|
+| [Pile (Uncopyrighted)](https://huggingface.co/datasets/monology/pile-uncopyrighted) | Tested (paper) pre-training | `data/pile/prepare.py` |
+| [OpenWebText](https://huggingface.co/datasets/openwebtext) | Novel pre-training dataset 1 | `data/openwebtext/prepare.py` |
+| [Wikitext-103](https://huggingface.co/datasets/wikitext) | Novel pre-training dataset 2 | `data/wikitext/prepare.py` |
+| [LAMBADA](https://huggingface.co/datasets/EleutherAI/lambada_openai) | LM evaluation | `data/lambada/prepare.py` |
+| [Penn Treebank (PTB)](https://huggingface.co/datasets/ptb-text-only/ptb_text_only) | Novel fine-tune dataset 1 | `data/ptb/prepare.py` |
+| [Shakespeare](https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt) | Novel fine-tune dataset 2 | `data/shakespeare/prepare.py` |
+
+## Training Configs
+
+| Config | Description |
+|--------|-------------|
+| `config/train_gpt2.py` | Train CRATE on Pile (tested dataset) |
+| `config/train_openwebtext.py` | Train CRATE on OpenWebText (novel dataset 1) |
+| `config/train_wikitext103.py` | Train CRATE on Wikitext-103 (novel dataset 2) |
+
+### Single-GPU example
+
+```bash
+python train.py config/train_openwebtext.py --compile=False
+```
+
+### Multi-GPU (DDP) example
+
+```bash
+torchrun --standalone --nproc_per_node=8 train.py config/train_openwebtext.py
+```
+
+## Fine-tuning Configs
+
+Fine-tuning starts from a pre-trained CRATE checkpoint (set `out_dir` to your
+checkpoint directory):
+
+| Config | Dataset | Description |
+|--------|---------|-------------|
+| `config/finetune_shakespeare_crate.py` | Shakespeare | Novel fine-tune dataset 1 |
+| `config/finetune_ptb_crate.py` | Penn Treebank | Novel fine-tune dataset 2 |
+
+```bash
+# Fine-tune on Shakespeare
+python train.py config/finetune_shakespeare_crate.py --out_dir=<pretrain_ckpt_dir> --compile=False
+
+# Fine-tune on PTB
+python train.py config/finetune_ptb_crate.py --out_dir=<pretrain_ckpt_dir> --compile=False
+```
+
+## Evaluation Configs
+
+After training or fine-tuning, evaluate perplexity with the corresponding eval config:
+
+| Config | Evaluates on |
+|--------|-------------|
+| `config/eval_pile.py` | Pile |
+| `config/eval_openwebtext.py` | OpenWebText |
+| `config/eval_wikitext.py` | Wikitext-2 |
+| `config/eval_wikitext103.py` | Wikitext-103 |
+| `config/eval_lambada.py` | LAMBADA |
+| `config/eval_ptb_crate.py` | Penn Treebank |
+| `config/eval_shakespeare_crate.py` | Shakespeare |
+
+```bash
+# Example: evaluate CRATE trained on OpenWebText
+python train.py config/eval_openwebtext.py --out_dir=out-crate-openwebtext --compile=False
+```
+
+---
+
 ## Interpretability Evaluation
 
 You should first install the automated interpretability evaluation tools from OpenAI. I accomodated the code from only supporting OpenAI checkpoint to any model on HuggingFace you want to use for evaluation. You can find the code in `automated-interpretability` folder.
