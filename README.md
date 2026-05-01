@@ -140,6 +140,91 @@ python train.py config/eval_openwebtext.py --out_dir=out-crate-openwebtext --com
 
 ---
 
+## Small-Model Benchmark (laptop / single GPU)
+
+A lightweight variant of the benchmark uses **CRATE-small** (4 layers, 4 heads,
+256-dim embeddings, ~3 M parameters) and small datasets so the entire
+pipeline can run on a laptop CPU or a single consumer GPU.
+
+| Track | Description |
+|-------|-------------|
+| **Train from scratch** | Shakespeare (tested dataset) + Wikitext-2 and TinyStories (novel datasets) |
+| **Fine-tune evaluation** | Fine-tune the Shakespeare checkpoint on Wikitext-2 and TinyStories; compare perplexity against from-scratch |
+
+### Quick Start
+
+```bash
+# 1. Install dependencies (same as above)
+pip install torch tiktoken datasets tqdm requests
+
+# 2. Run the full small-model benchmark
+bash run_benchmark_small.sh
+
+# 3. Only data preparation
+bash run_benchmark_small.sh --prepare-only
+
+# 4. Only training from scratch
+bash run_benchmark_small.sh --train-only
+
+# 5. Only fine-tuning (requires Shakespeare checkpoint)
+bash run_benchmark_small.sh --finetune-only
+
+# 6. Force CPU execution
+DEVICE=cpu bash run_benchmark_small.sh
+```
+
+### Datasets
+
+| Dataset | Purpose | Tokens (approx.) | Script |
+|---------|---------|------------------|--------|
+| Shakespeare | Tested dataset (train from scratch) | ~300 K | `data/shakespeare/prepare.py` |
+| Wikitext-2 | Novel dataset 1 | ~2 M | `data/wikitext2/prepare.py` |
+| TinyStories | Novel dataset 2 | ~40 M (200 K stories) | `data/tinystories/prepare.py` |
+
+### Configs
+
+| Config | Purpose |
+|--------|---------|
+| `config/train_shakespeare_small.py` | Train CRATE-small from scratch on Shakespeare |
+| `config/train_wikitext2_small.py` | Train CRATE-small from scratch on Wikitext-2 |
+| `config/train_tinystories_small.py` | Train CRATE-small from scratch on TinyStories |
+| `config/finetune_wikitext2_small.py` | Fine-tune Shakespeare ckpt → Wikitext-2 |
+| `config/finetune_tinystories_small.py` | Fine-tune Shakespeare ckpt → TinyStories |
+| `config/eval_shakespeare_small.py` | Evaluate perplexity on Shakespeare |
+| `config/eval_wikitext2_small.py` | Evaluate perplexity on Wikitext-2 |
+| `config/eval_tinystories_small.py` | Evaluate perplexity on TinyStories |
+
+### Step-by-step (manual)
+
+```bash
+# ── Step 1: prepare data ────────────────────────────────────────────────────
+python data/shakespeare/prepare.py
+python data/wikitext2/prepare.py
+python data/tinystories/prepare.py
+
+# ── Step 2: train from scratch on the tested dataset (Shakespeare) ──────────
+python train.py config/train_shakespeare_small.py
+python train.py config/eval_shakespeare_small.py --out_dir=out-crate-small-shakespeare
+
+# ── Step 3: train from scratch on the two novel datasets ───────────────────
+python train.py config/train_wikitext2_small.py
+python train.py config/eval_wikitext2_small.py --out_dir=out-crate-small-wikitext2
+
+python train.py config/train_tinystories_small.py
+python train.py config/eval_tinystories_small.py --out_dir=out-crate-small-tinystories
+
+# ── Step 4: fine-tune the Shakespeare checkpoint on both novel datasets ─────
+python train.py config/finetune_wikitext2_small.py --out_dir=out-crate-small-shakespeare
+python train.py config/eval_wikitext2_small.py     --out_dir=out-crate-small-ft-wikitext2
+
+python train.py config/finetune_tinystories_small.py --out_dir=out-crate-small-shakespeare
+python train.py config/eval_tinystories_small.py     --out_dir=out-crate-small-ft-tinystories
+```
+
+> **Perplexity** is computed as `exp(val_loss)` from the `[EVAL]` output lines.
+
+---
+
 ## Interpretability Evaluation
 
 You should first install the automated interpretability evaluation tools from OpenAI. I accomodated the code from only supporting OpenAI checkpoint to any model on HuggingFace you want to use for evaluation. You can find the code in `automated-interpretability` folder.
