@@ -39,7 +39,7 @@ if __name__ == '__main__':
     )
 
     for split, dset in tokenized.items():
-        arr_len = int(np.sum(dset['len']))
+        arr_len = int(np.sum(dset['len'], dtype=np.int64))
         if arr_len == 0:
             print(f"Skipping empty split: {split}")
             continue

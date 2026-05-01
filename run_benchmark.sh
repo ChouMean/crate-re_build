@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# run_benchmark.sh  –  CRATE-LM Benchmark Suite
+# run_benchmark.sh - CRATE-LM Benchmark Suite
 # =============================================================================
 #
 # Runs the full benchmark described in "Improving Neuron-level Interpretability

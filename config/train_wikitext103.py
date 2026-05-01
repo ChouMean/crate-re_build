@@ -31,7 +31,7 @@ n_embd = 768
 # 8 micro-batch * 512 block * 4 grad-accum * 4 GPUs = 65,536 tokens/step
 batch_size = 8
 block_size = 512
-gradient_accumulation_steps = 4 * 4
+gradient_accumulation_steps = 4 * 4  # 4 grad-accum-per-gpu * 4 GPUs
 
 # ~50B tokens total (adequate for this corpus size)
 max_iters = 100000

@@ -30,7 +30,7 @@ n_embd = 768
 # 12 micro-batch * 1024 block * 5 grad-accum * 8 GPUs = 491,520 tokens/step
 batch_size = 12
 block_size = 1024
-gradient_accumulation_steps = 5 * 8  # scale down for fewer GPUs if needed
+gradient_accumulation_steps = 5 * 8  # 5 grad-accum-per-gpu * 8 GPUs; scale down for fewer GPUs if needed
 
 # Training schedule (~300B tokens total)
 max_iters = 600000
