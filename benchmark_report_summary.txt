@@ -1,0 +1,274 @@
+CRATE-LM Mini Benchmark Summary
+================================
+
+Project setup
+-------------
+
+Working directory:
+
+  E:\Document\ML\CRATE-LM\crate-lm
+
+Environment:
+
+  PowerShell on Windows
+  Python virtual environment: .venv
+  Device used for training/evaluation: CUDA
+
+
+Commands used
+-------------
+
+Activate environment:
+
+  cd E:\Document\ML\CRATE-LM\crate-lm
+  .\.venv\Scripts\Activate.ps1
+
+Install dependencies:
+
+  pip install torch tiktoken datasets tqdm requests
+
+Prepare data and train the full small benchmark:
+
+  .\run_benchmark_small.ps1
+
+Alternative separated commands:
+
+  .\run_benchmark_small.ps1 -PrepareOnly
+  .\run_benchmark_small.ps1 -TrainOnly
+
+Create fine-tuning checkpoint directories from the best Shakespeare checkpoint:
+
+  New-Item -ItemType Directory -Force out-crate-small-ft-wikitext2
+  Copy-Item out-crate-small-shakespeare\ckpt-400.pt out-crate-small-ft-wikitext2\ckpt.pt -Force
+
+  New-Item -ItemType Directory -Force out-crate-small-ft-tinystories
+  Copy-Item out-crate-small-shakespeare\ckpt-400.pt out-crate-small-ft-tinystories\ckpt.pt -Force
+
+Fine-tune on Wikitext-2:
+
+  python train.py config/finetune_wikitext2_small.py `
+    --out_dir=out-crate-small-ft-wikitext2 `
+    --device=cuda `
+    --max_iters=1400 `
+    --always_save_checkpoint=True
+
+Fine-tune on TinyStories:
+
+  python train.py config/finetune_tinystories_small.py `
+    --out_dir=out-crate-small-ft-tinystories `
+    --device=cuda `
+    --max_iters=1400 `
+    --always_save_checkpoint=True
+
+Evaluate Wikitext-2 fine-tuned checkpoint:
+
+  python eval_checkpoint.py `
+    --out_dir=out-crate-small-ft-wikitext2 `
+    --dataset=wikitext2 `
+    --device=cuda `
+    --eval_iters=50
+
+Evaluate TinyStories fine-tuned checkpoint:
+
+  python eval_checkpoint.py `
+    --out_dir=out-crate-small-ft-tinystories `
+    --dataset=tinystories `
+    --device=cuda `
+    --eval_iters=50
+
+
+Model configuration
+-------------------
+
+Model:
+
+  CRATE-small
+
+Architecture:
+
+  Number of layers: 4
+  Number of attention heads: 4
+  Embedding dimension: 256
+  Block size: 256
+  Dropout: 0.1
+  Vocabulary size: 50304
+  Number of parameters: approximately 14.52M
+
+Training system:
+
+  Precision: float32
+  compile: False
+  wandb logging: False
+  Device: CUDA
+
+
+Datasets
+--------
+
+  Shakespeare:
+    Role: tested/source dataset
+    Approximate size: 300K tokens
+
+  Wikitext-2:
+    Role: novel dataset 1
+    Approximate size: 2M tokens
+
+  TinyStories:
+    Role: novel dataset 2
+    Approximate size: 40M tokens
+
+
+Training from scratch configuration
+-----------------------------------
+
+Common optimizer settings:
+
+  Optimizer: AdamW
+  Weight decay: 0.1
+  Betas: 0.9, 0.99
+  Gradient clipping: 1.0
+  Learning rate schedule: cosine decay
+
+Per-dataset settings:
+
+  Dataset       Max iters   Batch size   Grad accum   Tokens/iter   LR
+  Shakespeare   2000        8            4            8192          1e-3
+  Wikitext-2    5000        8            4            8192          1e-3
+  TinyStories   10000       8            4            8192          1e-3
+
+Approximate epoch calculation:
+
+  tokens_per_iter = batch_size * block_size * gradient_accumulation_steps
+                  = 8 * 256 * 4
+                  = 8192 tokens/iter
+
+  Shakespeare:
+    2000 * 8192 / 300K ~= 55 epochs
+
+  Wikitext-2:
+    5000 * 8192 / 2M ~= 20 epochs
+
+  TinyStories:
+    10000 * 8192 / 40M ~= 2 epochs
+
+
+Fine-tuning configuration
+-------------------------
+
+Source checkpoint:
+
+  out-crate-small-shakespeare\ckpt-400.pt
+
+Reason for choosing ckpt-400.pt:
+
+  The Shakespeare validation loss was lowest around step 400.
+
+Fine-tuning targets:
+
+  Wikitext-2
+  TinyStories
+
+Settings:
+
+  Batch size: 4
+  Gradient accumulation: 4
+  Block size: 256
+  Tokens per iteration: 4096
+  Learning rate: 3e-5
+  Learning rate schedule: constant
+  Additional fine-tuning steps: approximately 1000
+  Precision: float32
+  Device: CUDA
+
+
+Evaluation metrics
+------------------
+
+Metrics:
+
+  Validation loss:
+    Cross-entropy loss on the validation split.
+
+  Perplexity:
+    exp(validation loss)
+
+Interpretation:
+
+  Lower validation loss is better.
+  Lower perplexity is better.
+
+
+Results
+-------
+
+Scratch training results:
+
+  Dataset       Training setup      Val loss   Perplexity
+  Wikitext-2    From scratch        5.6646     288.48
+  TinyStories   From scratch        2.2232     9.24
+
+Fine-tuning results:
+
+  Dataset       Training setup                 Val loss   Perplexity
+  Wikitext-2    Fine-tuned from Shakespeare     6.7195     828.38
+  TinyStories   Fine-tuned from Shakespeare     4.2728     71.72
+
+Combined result table:
+
+  Dataset       Training setup                 Val loss   Perplexity
+  Wikitext-2    From scratch                    5.6646     288.48
+  Wikitext-2    Fine-tuned from Shakespeare     6.7195     828.38
+  TinyStories   From scratch                    2.2232     9.24
+  TinyStories   Fine-tuned from Shakespeare     4.2728     71.72
+
+
+Interpretation
+--------------
+
+CRATE-small was successfully trained from scratch on the source/tested dataset
+and on two novel datasets. The model was also fine-tuned from a Shakespeare
+checkpoint and evaluated on the two novel datasets.
+
+In this setup, fine-tuning from the Shakespeare checkpoint underperformed
+training from scratch on both Wikitext-2 and TinyStories. This suggests that the
+Shakespeare checkpoint did not transfer well to these novel datasets under the
+current fine-tuning configuration. A likely reason is domain mismatch:
+Shakespeare is small and stylistically different from Wikipedia-style text
+and TinyStories.
+
+
+Connection to the CRATE-LM paper
+--------------------------------
+
+The CRATE-LM paper proposes a white-box language model architecture designed to
+improve neuron-level interpretability. The main paper focuses on interpretability
+analysis and neuron-level explanation quality.
+
+This mini benchmark does not reproduce the full neuron-level interpretability
+evaluation from the paper. Instead, it verifies the training and evaluation
+pipeline for CRATE-small and compares two training settings:
+
+  1. Training from scratch on novel datasets.
+  2. Fine-tuning from a Shakespeare-trained checkpoint on novel datasets.
+
+The experiment shows that CRATE-small can be trained and evaluated successfully,
+but in this small-scale setting, scratch training performs better than
+fine-tuning from Shakespeare on both novel datasets.
+
+
+Rubric mapping
+--------------
+
+Training: Yes
+
+  CRATE-small was trained from scratch on the tested/source dataset and on two
+  novel datasets.
+
+Evaluation: Mini
+
+  The trained model was fine-tuned and tested on at least two novel datasets:
+  Wikitext-2 and TinyStories.
+
+Hyperparameter/component benchmark: No
+
+  No hyperparameter or component ablation benchmark was required or performed.

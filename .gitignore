@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+
+# Prepared local datasets and training outputs
+data/shakespeare/input.txt
+out-crate-small-*/
